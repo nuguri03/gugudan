@@ -5,9 +5,6 @@ section .data
     invalid_msg db "Invalid number! (1 <= number <= 99)", 10
     invalid_msg_len equ $ - invalid_msg
 
-    gugudan_msg db "   *  =    ", 10
-    gugudan_msg_len equ $ - gugudan_msg
-
 section .bss
     buf resb 10
 
@@ -52,7 +49,8 @@ _start:
 
     jmp _exit
 
-print:  ; rdi = msg / rsi = msg_len
+; print(msg, ,msg_len)
+print:
     mov rax, 0x1        ; syscall 'write'
     mov rdx, rsi   
     mov rsi, rdi        
@@ -60,6 +58,7 @@ print:  ; rdi = msg / rsi = msg_len
     syscall
     ret
 
+; developing...
 print_gugudan:
     cmp rcx, gugudan_msg_len
     jge end_true
@@ -82,9 +81,10 @@ input:
     
     ; '\n' -> 'NULL'
     sub rax, 1
-    mov byte [buf + rax], 0     ; EOF 들어오면 버그 날 것임. 
+    mov byte [buf + rax], 0     ; EOF -> BUG!!
     ret
 
+; is_number(buf, buf_len) -> rax = true/false
 is_number:
     xor rax, rax
     xor rcx, rcx
@@ -106,14 +106,12 @@ for_check_number:
     inc rcx
     jmp for_check_number
 
-; 문자열 -> 숫자(수정 필요)
+; atoi(buf, buf_len) -> rax = true/false, rbx = number
 atoi:
-    xor rbx, rbx    ; 최종 숫자
-    xor rax, rax    
+    xor rax, rax    ; t/f
+    xor rbx, rbx    ; number
     xor rcx, rcx
-    
     call for_atoi    
-
     ret
 
 for_atoi:

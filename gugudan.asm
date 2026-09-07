@@ -60,10 +60,7 @@ print:
 
 ; developing...
 print_gugudan:
-    cmp rcx, gugudan_msg_len
-    jge end_true
-    
-    
+
 
 invalid:
     mov rdi, invalid_msg
@@ -122,7 +119,7 @@ for_atoi:
     cmp al, 0x0
     je end_true
 
-    mul rbx, 10
+    imul rbx, 10
     
     sub al, '0'
     add rbx, rax

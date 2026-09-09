@@ -1,9 +1,13 @@
+extern printf
+
 section .data
     enter_msg db "Enter a number (1-99): "
     enter_msg_len equ $ - enter_msg
 
     invalid_msg db "Invalid number! (1 <= number <= 99)", 10
     invalid_msg_len equ $ - invalid_msg
+
+    fmt db "%d * %d = %d", 10, 0
 
     newline db 10
     MAX_LEN equ 10
@@ -13,9 +17,9 @@ section .bss
     w_buf resb MAX_LEN
 
 section .text
-    global _start
+    global main
 
-_start:
+main:
     mov rdi, enter_msg
     mov rsi, enter_msg_len
     call print
@@ -45,7 +49,7 @@ _start:
     cmp rax, 99
     jg print_invalid
 
-    mov r9, rax     ; r9 = input_number
+    mov r13, rax     ; r13 = input_number
     call print_gugudan
 
     jmp _exit
@@ -73,20 +77,18 @@ print_gugudan:
     cmp r12, 10
     jge .done
     
-    mov rax, r9
+    mov rax, r13
     imul rax, r12
 
-    mov rdi, rax
-    mov rsi, w_buf
-    call iota
+    mov rdi, fmt
+    mov rsi, r13
+    mov rdx, r12
+    mov rcx, rax
+    mov rax, 0
 
-    mov rdi, w_buf
-    mov rsi, rax
-    call print
-
-    mov rdi, newline
-    mov rsi, 1
-    call print
+    push r12
+    call printf
+    pop r12
 
     inc r12
     jmp .loop

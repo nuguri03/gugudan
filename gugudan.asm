@@ -5,8 +5,12 @@ section .data
     invalid_msg db "Invalid number! (1 <= number <= 99)", 10
     invalid_msg_len equ $ - invalid_msg
 
+    newline db 10
+    MAX_LEN equ 10
+
 section .bss
-    buf resb 10
+    r_buf resb MAX_LEN
+    w_buf resb MAX_LEN
 
 section .text
     global _start
@@ -16,19 +20,19 @@ _start:
     mov rsi, enter_msg_len
     call print
 
-    call input
-    mov rbx, rax    ; rbx = input_len
+    call input  
+    mov r10, rax    ; r10 = input_len
 
-    mov rdi, buf
-    mov rsi, rbx
-    call is_number
+    mov rdi, r_buf
+    mov rsi, r10
+    call is_number ; rax = true/false
     cmp rax, 0
-    je invalid
+    je print_invalid
 
     push rbp
     mov rbp, rsp
-    mov rdi, buf
-    mov rsi, rbx
+    mov rdi, r_buf
+    mov rsi, r10
     call atoi
     mov rsp, rbp
     pop rbp
@@ -36,20 +40,17 @@ _start:
     cmp rax, 0
     je _exit
 
-    mov rax, rbx
-
     cmp rax, 1
-    jl invalid
+    jl print_invalid
     cmp rax, 99
-    jg invalid
+    jg print_invalid
 
-    xor rcx, rcx
-    mov rdi, rax
+    mov r9, rax     ; r9 = input_number
     call print_gugudan
 
     jmp _exit
 
-; print(msg, ,msg_len)
+; print(msg, msg_len)
 print:
     mov rax, 0x1        ; syscall 'write'
     mov rdx, rsi   
@@ -58,81 +59,138 @@ print:
     syscall
     ret
 
-; developing...
-print_gugudan:
-
-
-invalid:
+print_invalid:
     mov rdi, invalid_msg
     mov rsi, invalid_msg_len
     call print
 
     jmp _exit
 
+; print_gugudan(r9 = number)
+print_gugudan:
+    mov r12, 1
+.loop:
+    cmp r12, 10
+    jge .done
+    
+    mov rax, r9
+    imul rax, r12
+
+    mov rdi, rax
+    mov rsi, w_buf
+    call iota
+
+    mov rdi, w_buf
+    mov rsi, rax
+    call print
+
+    mov rdi, newline
+    mov rsi, 1
+    call print
+
+    inc r12
+    jmp .loop
+.done:
+    ret
+
 input:
     mov rax, 0x0    ; syscall 'read'
     mov rdi, 0x0    ; stdin
-    mov rsi, buf    
+    mov rsi, r_buf    
     mov rdx, 0xa    ; 10 bytes
     syscall
     
+    cmp rax, 0
+    jle .done
+
     ; '\n' -> 'NULL'
-    sub rax, 1
-    mov byte [buf + rax], 0     ; EOF -> BUG!!
+    cmp byte [r_buf + rax - 1], 10
+    jne .done
+    dec rax
+    mov byte [r_buf + rax], 0     ; EOF -> BUG!!
+.done:
     ret
 
 ; is_number(buf, buf_len) -> rax = true/false
 is_number:
     xor rax, rax
     xor rcx, rcx
-    call for_check_number
+    call .loop
     ret
-
-for_check_number:
+.loop:
     cmp rcx, rsi
-    jge end_true
+    jge .return_true
 
-    mov al, [buf+rcx]
-    cmp al, 0x00   ; NULL
-    je end_true
-    cmp al, '0'
-    jl end_false
-    cmp al, '9'
-    jg end_false
+    xor rbx, rbx
+
+    mov bl, [rdi+rcx]
+    cmp bl, 0x00   ; NULL
+    je .return_true
+    cmp bl, '0'
+    jl .return_false
+    cmp bl, '9'
+    jg .return_false
 
     inc rcx
-    jmp for_check_number
-
-; atoi(buf, buf_len) -> rax = true/false, rbx = number
-atoi:
-    xor rax, rax    ; t/f
-    xor rbx, rbx    ; number
-    xor rcx, rcx
-    call for_atoi    
-    ret
-
-for_atoi:
-    cmp rcx, rsi
-    jge end_true
-
-    mov al, [buf+rcx]
-    cmp al, 0x0
-    je end_true
-
-    imul rbx, 10
-    
-    sub al, '0'
-    add rbx, rax
-
-    inc rcx
-    jmp for_atoi
-
-end_true:
+    jmp .loop
+.return_true:
     mov rax, 1
     ret
+.return_false:
+    xor rax, rax
+    ret
 
-end_false:
-    mov rax, 0
+; atoi(buf, buf_len) -> rax = number
+atoi:
+    xor rax, rax    ; number
+    xor rbx, rbx
+    xor rcx, rcx
+    call .loop    
+    ret
+.loop:
+    cmp rcx, rsi
+    jge .done
+
+    mov bl, [rdi+rcx]
+    cmp bl, 0x0
+    je .done
+    sub bl, '0'
+
+    imul rax, 10
+    add rax, rbx
+
+    inc rcx
+    jmp .loop
+.done:
+    ret
+
+; iota(number, buf) -> rax = length
+iota:
+    mov rax, rdi
+    mov rbx, 10
+    xor rcx, rcx
+.push_loop:
+    xor rdx, rdx
+    div rbx ; rax: 몫 / rdx:나머지
+    add dl, '0'
+    push rdx
+    inc rcx
+
+    cmp rax, 0
+    jg .push_loop
+
+    mov r8, rcx
+    xor rdx, rdx
+.pop_loop:
+    pop rax
+    mov [rsi + rdx], al
+    inc rdx
+    loop .pop_loop
+
+    mov byte [rsi + rdx], 0
+    mov rax, r8
+    jmp .done
+.done:
     ret
 
 _exit:
